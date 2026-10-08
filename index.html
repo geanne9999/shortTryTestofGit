@@ -1,1438 +1,1141 @@
- <!doctype html>
-
+<!doctype html>
 <html lang="en">
-
 <head>
-
 <meta charset="utf-8" />
-
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-
-<title>Interactive Mesh Gradient Wallpaper</title>
-
+<title>Interactive Mesh Gradient & Floating Lines</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-
-  /* Page / Canvas reset */
-
-  html,body {
-
-    height:100%;
-
-    margin:0;
-
-    background:#0a0b10;
-
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-
-    -webkit-font-smoothing:antialiased;
-
-    -moz-osx-font-smoothing:grayscale;
-
-    overflow:hidden;
-
-    color: #111217;
-
+  /* ===== Reset & Base ===== */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: #0a0b10;
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    color: #e0e6f0;
   }
-
-
 
   #app {
-
-    position:fixed;
-
-    inset:0;
-
-    background:#0a0b10;
-
+    position: fixed;
+    inset: 0;
+    background: #0a0b10;
   }
 
-
-
-  canvas#bg {
-
+  /* Layer 1: Blurred Mesh Gradient Canvas */
+  canvas#bgMesh {
     position: absolute;
-
-    inset:0;
-
-    width:100%;
-
-    height:100%;
-
-    display:block;
-
-    z-index:0;
-
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    z-index: 1;
     filter: blur(65px);
-
     transform: scale(1.2);
-
     transform-origin: center;
-
     will-change: transform, filter;
-
     background: transparent;
-
+    pointer-events: none;
+    transition: opacity 300ms ease;
   }
 
-
-
-  /* Glassmorphism control panel */
-
-  .panel {
-
+  /* Layer 2: Crisp Floating Lines Waves Canvas */
+  canvas#fgWaves {
     position: absolute;
-
-    right: 24px;
-
-    top: 24px;
-
-    width: 320px;
-
-    padding: 14px;
-
-    border-radius: 14px;
-
-    background: rgba(15, 15, 25, 0.75);
-
-    border: 1px solid rgba(255, 255, 255, 0.12);
-
-    box-shadow: 0 8px 30px rgba(0,0,0,0.45);
-
-    backdrop-filter: blur(8px) saturate(120%);
-
-    -webkit-backdrop-filter: blur(8px) saturate(120%);
-
-    color: #ffffff;
-
-    z-index: 10;
-
-    transition: transform 220ms ease, opacity 220ms ease;
-
-    user-select:none;
-
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    z-index: 2;
+    pointer-events: none;
+    transition: opacity 300ms ease;
   }
 
+  /* ===== Unified Glassmorphic Settings Panel ===== */
+  .panel {
+    position: absolute;
+    right: 24px;
+    top: 24px;
+    width: 350px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    padding: 18px;
+    border-radius: 16px;
+    background: rgba(14, 15, 26, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 16px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.05) inset;
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    color: #ffffff;
+    z-index: 10;
+    transition: transform 220ms ease, opacity 220ms ease;
+    user-select: none;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.15) transparent;
+  }
 
+  .panel::-webkit-scrollbar { width: 4px; }
+  .panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
 
   .panel.hidden {
-
     transform: translateY(-12px);
-
     opacity: 0;
-
     pointer-events: none;
-
   }
-
-
 
   .panel header {
-
-    display:flex;
-
-    align-items:center;
-
-    justify-content:space-between;
-
-    gap:10px;
-
-    margin-bottom:8px;
-
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
   }
-
-
 
   .panel h1 {
-
-    font-size:14px;
-
-    font-weight:600;
-
-    margin:0;
-
-    letter-spacing:0.2px;
-
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    background: linear-gradient(135deg, #e945f5, #61dafb);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
-
-
 
   .panel .sub {
-
-    font-size:11px;
-
-    opacity:0.78;
-
-    margin-top:4px;
-
+    font-size: 11px;
+    opacity: 0.75;
+    margin-top: 3px;
     color: #c6d0e8;
-
   }
 
-
-
-  .control-group {
-
-    display:grid;
-
-    grid-template-columns: 1fr auto;
-
-    gap:10px;
-
-    align-items:center;
-
-    margin: 10px 0;
-
+  .hide-btn, .small-btn {
+    appearance: none;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: 500;
+    color: #e7f1ff;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 160ms ease;
+  }
+  .hide-btn:hover, .small-btn:hover {
+    background: rgba(255,255,255,0.12);
+    border-color: rgba(255,255,255,0.2);
   }
 
-
-
-  .color-row {
-
-    display:flex;
-
-    gap:8px;
-
-    align-items:center;
-
+  /* Nav Tabs */
+  .nav-tabs {
+    display: flex;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 3px;
+    gap: 4px;
+    margin-bottom: 14px;
   }
-
-
-
-  .color-input {
-
-    -webkit-appearance:none;
-
-    appearance:none;
-
+  .tab-btn {
+    flex: 1;
     border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 7px 6px;
+    border-radius: 7px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 180ms ease;
+  }
+  .tab-btn.active {
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  }
 
-    width: 48px;
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
 
-    height: 36px;
+  /* Sections & Controls */
+  .section-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: rgba(255, 255, 255, 0.38);
+    margin: 14px 0 6px;
+    padding-bottom: 3px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .section-title:first-child { margin-top: 0; }
 
-    border-radius:8px;
+  .control-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 8px 0;
+  }
+  .control-row label {
+    font-size: 11.5px;
+    color: rgba(255, 255, 255, 0.75);
+    min-width: 95px;
+  }
+  .value-display {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.45);
+    min-width: 28px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
 
-    cursor:pointer;
-
-    padding:0;
-
-    background:transparent;
-
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: 1;
+    height: 5px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 6px;
     outline: none;
-
-    box-shadow: 0 0 0 1px rgba(255,255,255,0.04) inset;
-
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #e945f5, #61dafb);
+    cursor: grab;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.4);
   }
 
-  .color-input::-webkit-color-swatch-wrapper { padding:0; border-radius:8px; }
-
-  .color-input::-webkit-color-swatch { border:none; border-radius:8px; }
-
-  .color-input::-moz-color-swatch { border:none; border-radius:8px; }
-
-
-
-  .color-meta {
-
-    display:flex;
-
-    gap:8px;
-
-    align-items:center;
-
-    font-size:12px;
-
+  .switch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 6px 0;
+  }
+  .switch-row label {
+    font-size: 11.5px;
+    color: rgba(255,255,255,0.78);
+  }
+  .switch {
+    position: relative;
+    width: 36px;
+    height: 20px;
+  }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch .slider {
+    position: absolute;
+    inset: 0;
+    cursor: pointer;
+    background: rgba(255,255,255,0.1);
+    border-radius: 20px;
+    transition: 200ms;
+  }
+  .switch .slider::before {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    left: 3px;
+    bottom: 3px;
+    background: #888;
+    border-radius: 50%;
+    transition: transform 200ms, background 200ms;
+  }
+  .switch input:checked + .slider {
+    background: linear-gradient(135deg, #e945f5, #61dafb);
+  }
+  .switch input:checked + .slider::before {
+    transform: translateX(16px);
+    background: #fff;
   }
 
-
-
-  .small-btn {
-
-    appearance:none;
-
-    background: rgba(255,255,255,0.04);
-
-    border: 1px solid rgba(255,255,255,0.06);
-
-    padding:6px 8px;
-
-    font-size:12px;
-
-    color:inherit;
-
-    border-radius:8px;
-
-    cursor:pointer;
-
+  .color-group {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 6px 0;
   }
-
-
-
-  .toggle {
-
-    display:flex;
-
-    align-items:center;
-
-    gap:8px;
-
-    font-size:12px;
-
-    opacity:0.95;
-
+  .color-group label {
+    font-size: 11.5px;
+    color: rgba(255,255,255,0.75);
   }
-
-
-
-  .toggle input[type="checkbox"] {
-
-    width:18px;
-
-    height:18px;
-
-    accent-color: #61dafb;
-
+  input[type="color"] {
+    -webkit-appearance: none;
+    appearance: none;
+    border: none;
+    width: 36px;
+    height: 26px;
+    border-radius: 6px;
+    cursor: pointer;
+    background: transparent;
   }
+  input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; border-radius: 6px; }
+  input[type="color"]::-webkit-color-swatch { border: none; border-radius: 6px; }
 
-
+  /* Mesh Picker Row */
+  .mesh-picker-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 6px 0;
+  }
+  .mesh-picker-row .left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
 
   .footer {
-
-    display:flex;
-
-    justify-content:space-between;
-
-    align-items:center;
-
-    gap:8px;
-
-    margin-top:8px;
-
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
   }
+  .hint { font-size: 11px; opacity: 0.55; }
 
-
-
-  .hint {
-
-    font-size:12px;
-
-    opacity:0.75;
-
+  @media (max-width: 420px) {
+    .panel { right: 12px; left: 12px; width: auto; }
   }
-
-
-
-  /* Hide small input outline on focus for aesthetics */
-
-  input:focus {
-
-    outline: 2px solid rgba(255,255,255,0.06);
-
-    border-radius:8px;
-
-  }
-
-
-
-  /* Responsive: move to left on small widths */
-
-  @media (max-width:420px) {
-
-    .panel {
-
-      right:12px;
-
-      left:12px;
-
-      width:auto;
-
-    }
-
-  }
-
-
-
-  /* tiny control for hide button */
-
-  .hide-btn {
-
-    display:inline-flex;
-
-    gap:8px;
-
-    align-items:center;
-
-    padding:8px 10px;
-
-    border-radius:10px;
-
-    border:1px solid rgba(255,255,255,0.06);
-
-    background: rgba(255,255,255,0.03);
-
-    cursor:pointer;
-
-    color:#e7f1ff;
-
-    font-size:13px;
-
-  }
-
-
-
-  /* subtle focus ring for accessibility */
-
-  .hide-btn:focus, .small-btn:focus {
-
-    box-shadow: 0 0 0 4px rgba(97,218,251,0.12);
-
-  }
-
 </style>
-
 </head>
-
 <body>
 
 <div id="app">
+  <!-- Mesh Canvas -->
+  <canvas id="bgMesh" aria-hidden="true"></canvas>
 
-  <canvas id="bg" aria-hidden="true"></canvas>
+  <!-- Waves Canvas -->
+  <canvas id="fgWaves" aria-hidden="true"></canvas>
 
-
-
-  <div class="panel" id="panel" role="region" aria-label="Gradient controls">
-
+  <!-- Unified Controls Panel -->
+  <div class="panel" id="panel" role="region" aria-label="Wallpaper controls">
     <header>
-
       <div>
-
-        <h1>Mesh Gradient Controls</h1>
-
-        <div class="sub">Floating color nodes — move your mouse to animate</div>
-
+        <h1>Motion Wallpaper</h1>
+        <div class="sub">Mesh gradient + Floating roaming lines</div>
       </div>
-
-      <div>
-
-        <button class="hide-btn" id="toggleUiBtn" title="Hide UI (H / Esc)">Hide UI</button>
-
-      </div>
-
+      <button class="hide-btn" id="toggleUiBtn" title="Hide UI (H / Esc)">Hide</button>
     </header>
 
-
-
-    <div id="pickers">
-
-      <!-- color pickers inserted by JS for clarity and easier binding -->
-
+    <!-- Tabs -->
+    <div class="nav-tabs">
+      <button class="tab-btn active" data-tab="tab-waves">Floating Lines</button>
+      <button class="tab-btn" data-tab="tab-mesh">Mesh Gradient</button>
+      <button class="tab-btn" data-tab="tab-master">Layers</button>
     </div>
 
-
-
-    <div class="footer">
-
-      <div class="hint">Press H or Esc to toggle UI</div>
-
-      <div>
-
-        <button id="resetBtn" class="small-btn" title="Reset to defaults">Reset</button>
-
+    <!-- TAB 1: Floating Lines -->
+    <div class="tab-content active" id="tab-waves">
+      <div class="section-title">Enabled Waves</div>
+      <div class="switch-row">
+        <label>Top Wave</label>
+        <label class="switch"><input type="checkbox" id="wTop" checked><span class="slider"></span></label>
+      </div>
+      <div class="switch-row">
+        <label>Middle Wave</label>
+        <label class="switch"><input type="checkbox" id="wMid" checked><span class="slider"></span></label>
+      </div>
+      <div class="switch-row">
+        <label>Bottom Wave</label>
+        <label class="switch"><input type="checkbox" id="wBot" checked><span class="slider"></span></label>
       </div>
 
+      <div class="section-title">Line Geometry</div>
+      <div class="control-row">
+        <label>Line Count</label>
+        <input type="range" id="wLineCount" min="2" max="24" step="1" value="8">
+        <span class="value-display" id="wLineCountVal">8</span>
+      </div>
+      <div class="control-row">
+        <label>Line Distance</label>
+        <input type="range" id="wLineDist" min="2" max="28" step="1" value="8">
+        <span class="value-display" id="wLineDistVal">8</span>
+      </div>
+      <div class="control-row">
+        <label>Line Width</label>
+        <input type="range" id="wLineWidth" min="0.5" max="5" step="0.25" value="1.5">
+        <span class="value-display" id="wLineWidthVal">1.5</span>
+      </div>
+
+      <div class="section-title">Shape & Curvature</div>
+      <div class="control-row">
+        <label>Bend Radius</label>
+        <input type="range" id="wBendRad" min="1" max="25" step="1" value="8">
+        <span class="value-display" id="wBendRadVal">8</span>
+      </div>
+      <div class="control-row">
+        <label>Bend Strength</label>
+        <input type="range" id="wBendStr" min="-8" max="8" step="0.5" value="-2">
+        <span class="value-display" id="wBendStrVal">-2</span>
+      </div>
+      <div class="control-row">
+        <label>Turbulence</label>
+        <input type="range" id="wTurb" min="0" max="100" step="1" value="35">
+        <span class="value-display" id="wTurbVal">35</span>
+      </div>
+
+      <div class="section-title">Drift & Animation</div>
+      <div class="control-row">
+        <label>Anim Speed</label>
+        <input type="range" id="wAnimSpeed" min="0.1" max="4" step="0.1" value="1">
+        <span class="value-display" id="wAnimSpeedVal">1</span>
+      </div>
+      <div class="control-row">
+        <label>Drift / Roam Speed</label>
+        <input type="range" id="wDriftSpeed" min="0" max="3" step="0.1" value="0.8">
+        <span class="value-display" id="wDriftSpeedVal">0.8</span>
+      </div>
+      <div class="switch-row">
+        <label>Interactive Mouse</label>
+        <label class="switch"><input type="checkbox" id="wInteractive" checked><span class="slider"></span></label>
+      </div>
+      <div class="switch-row">
+        <label>Parallax</label>
+        <label class="switch"><input type="checkbox" id="wParallax" checked><span class="slider"></span></label>
+      </div>
+
+      <div class="section-title">Wave Colors</div>
+      <div class="color-group">
+        <label>Gradient Start</label>
+        <input type="color" id="wGradStart" value="#e945f5">
+      </div>
+      <div class="color-group">
+        <label>Gradient Mid</label>
+        <input type="color" id="wGradMid" value="#6f6f6f">
+      </div>
+      <div class="color-group">
+        <label>Gradient End</label>
+        <input type="color" id="wGradEnd" value="#6a6a6a">
+      </div>
+      <div class="control-row">
+        <label>Glow</label>
+        <input type="range" id="wGlow" min="0" max="30" step="1" value="12">
+        <span class="value-display" id="wGlowVal">12</span>
+      </div>
     </div>
 
-  </div>
+    <!-- TAB 2: Mesh Gradient -->
+    <div class="tab-content" id="tab-mesh">
+      <div class="section-title">Mesh Colors</div>
+      <div id="meshPickers"></div>
+      <div class="section-title" style="margin-top:12px">Mesh Settings</div>
+      <div class="control-row">
+        <label>Blur Amount</label>
+        <input type="range" id="mBlur" min="20" max="120" step="5" value="65">
+        <span class="value-display" id="mBlurVal">65px</span>
+      </div>
+      <div class="control-row">
+        <label>Node Count</label>
+        <input type="range" id="mNodeCount" min="4" max="18" step="1" value="10">
+        <span class="value-display" id="mNodeCountVal">10</span>
+      </div>
+    </div>
 
+    <!-- TAB 3: Layer Master Controls -->
+    <div class="tab-content" id="tab-master">
+      <div class="section-title">Visibility & Blending</div>
+      <div class="switch-row">
+        <label>Show Floating Lines</label>
+        <label class="switch"><input type="checkbox" id="layerWavesToggle" checked><span class="slider"></span></label>
+      </div>
+      <div class="control-row">
+        <label>Lines Opacity</label>
+        <input type="range" id="layerWavesOpacity" min="0" max="1" step="0.05" value="1">
+        <span class="value-display" id="layerWavesOpacityVal">1.0</span>
+      </div>
+      <div class="switch-row" style="margin-top:12px">
+        <label>Show Mesh Gradient</label>
+        <label class="switch"><input type="checkbox" id="layerMeshToggle" checked><span class="slider"></span></label>
+      </div>
+      <div class="control-row">
+        <label>Mesh Opacity</label>
+        <input type="range" id="layerMeshOpacity" min="0" max="1" step="0.05" value="1">
+        <span class="value-display" id="layerMeshOpacityVal">1.0</span>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span class="hint">Press H / Esc to toggle UI</span>
+      <button class="small-btn" id="resetBtn">Reset All</button>
+    </div>
+  </div>
 </div>
 
-
-
 <script>
+/* ============================================================
+   INTEGRATED MOTION WALLPAPER
+   1. Interactive Mesh Gradient Background
+   2. Floating Lines Non-Static Waves (Orbits & Roams Across Screen)
+   3. Unified Glassmorphic Settings Controls with Tabs
+   ============================================================ */
 
-/*
+const meshCanvas = document.getElementById('bgMesh');
+const meshCtx = meshCanvas.getContext('2d', { alpha: true });
 
-  Interactive Mesh Gradient
-
-  - Canvas-based radial nodes that blend with 'lighter' compositing.
-
-  - Control UI (glassmorphism) with 4 color pickers and enable toggles.
-
-  - Minimum 2 active colors enforced: if user disables down to 1, an auto complementary color is generated.
-
-  - Hide/Show UI (button + H key + Escape).
-
-  - Smooth mouse follow with requestAnimationFrame.
-
-*/
-
-
-
-/* ---------- Configuration & Defaults ---------- */
-
-const DEFAULT_COLORS = [
-
-  '#00E5FF', // Cyan
-
-  '#FFEB3B', // Vivid Yellow
-
-  '#FF3D00', // Bright Orange-Red
-
-  '#D500F9'  // Deep Magenta
-
-];
-
-
-
-const NODE_COUNT = 10;        // number of radial nodes
-
-const MIN_ACTIVE_COLORS = 2;  // minimum colors to blend
-
-
-
-/* ---------- DOM Elements ---------- */
-
-const canvas = document.getElementById('bg');
-
-const ctx = canvas.getContext('2d', { alpha: true });
-
-const panel = document.getElementById('panel');
-
-const pickersContainer = document.getElementById('pickers');
-
-const toggleUiBtn = document.getElementById('toggleUiBtn');
-
-const resetBtn = document.getElementById('resetBtn');
-
-
-
-/* ---------- Responsive Canvas Setup ---------- */
+const wavesCanvas = document.getElementById('fgWaves');
+const wavesCtx = wavesCanvas.getContext('2d', { alpha: true });
 
 let DPR = Math.max(1, window.devicePixelRatio || 1);
+let W = window.innerWidth;
+let H = window.innerHeight;
 
-function resizeCanvas() {
-
+function resizeAll() {
   DPR = Math.max(1, window.devicePixelRatio || 1);
+  W = window.innerWidth;
+  H = window.innerHeight;
 
-  canvas.width = Math.floor(canvas.clientWidth * DPR);
+  meshCanvas.width = Math.floor(W * DPR);
+  meshCanvas.height = Math.floor(H * DPR);
+  meshCanvas.style.width = W + 'px';
+  meshCanvas.style.height = H + 'px';
+  meshCtx.setTransform(DPR, 0, 0, DPR, 0, 0);
 
-  canvas.height = Math.floor(canvas.clientHeight * DPR);
-
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); // draw in CSS pixels
-
+  wavesCanvas.width = Math.floor(W * DPR);
+  wavesCanvas.height = Math.floor(H * DPR);
+  wavesCanvas.style.width = W + 'px';
+  wavesCanvas.style.height = H + 'px';
+  wavesCtx.setTransform(DPR, 0, 0, DPR, 0, 0);
 }
-
-window.addEventListener('resize', resizeCanvas, { passive: true });
-
-
-
-/* ---------- Mouse / Pointer State ---------- */
-
-const mouse = { x: null, y: null, px: null, py: null, active: false, vx: 0, vy: 0, speed: 0, lastMoveAt: 0 };
-
-window.addEventListener('pointermove', (e) => {
-
-  const now = performance.now();
-
-  const dt = Math.max(8, now - (mouse.lastMoveAt || now));
-
-  const nextVx = mouse.x == null ? 0 : (e.clientX - mouse.x) / dt;
-
-  const nextVy = mouse.y == null ? 0 : (e.clientY - mouse.y) / dt;
-
-
-
-  mouse.x = e.clientX;
-
-  mouse.y = e.clientY;
-
-  mouse.active = true;
-
-  mouse.vx = lerp(mouse.vx, nextVx, 0.45);
-
-  mouse.vy = lerp(mouse.vy, nextVy, 0.45);
-
-  mouse.speed = Math.hypot(mouse.vx, mouse.vy) * 1000;
-
-  mouse.lastMoveAt = now;
-
-});
-
-window.addEventListener('pointerdown', () => mouse.active = true);
-
-window.addEventListener('pointerup', () => {/* keep active for motion */});
-
-
-
-/* ---------- Utility Functions ---------- */
-
-function lerp(a, b, t) { return a + (b - a) * t; }
-
-function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
-
-
-
-/* Convert hex to rgba string with given alpha */
-
-function hexToRgba(hex, alpha=1) {
-
-  const h = hex.replace('#','');
-
-  const bigint = parseInt(h.length === 3 ? h.split('').map(c => c+c).join('') : h, 16);
-
-  const r = (bigint >> 16) & 255;
-
-  const g = (bigint >> 8) & 255;
-
-  const b = bigint & 255;
-
-  return `rgba(${r},${g},${b},${alpha})`;
-
-}
-
-
-
-/* Hue rotate helper: convert hex->hsl->rotate->hex */
-
-function hexToHsl(hex) {
-
-  const h = hex.replace('#','');
-
-  const bigint = parseInt(h.length === 3 ? h.split('').map(c => c+c).join('') : h, 16);
-
-  let r = ((bigint >> 16) & 255) / 255;
-
-  let g = ((bigint >> 8) & 255) / 255;
-
-  let b = (bigint & 255) / 255;
-
-  const max = Math.max(r,g,b), min = Math.min(r,g,b);
-
-  let hdeg=0, s=0, l=(max+min)/2;
-
-  if (max !== min) {
-
-    const d = max - min;
-
-    s = l > 0.5 ? d/(2-max-min) : d/(max+min);
-
-    switch(max){
-
-      case r: hdeg = (g - b) / d + (g < b ? 6 : 0); break;
-
-      case g: hdeg = (b - r) / d + 2; break;
-
-      case b: hdeg = (r - g) / d + 4; break;
-
-    }
-
-    hdeg *= 60;
-
-  }
-
-  return { h: hdeg, s, l };
-
-}
-
-function hslToHex(h,s,l){
-
-  // h in degrees 0..360, s,l in 0..1
-
-  h = (h % 360 + 360) % 360;
-
-  const C = (1 - Math.abs(2*l-1)) * s;
-
-  const X = C * (1 - Math.abs(((h/60) % 2) - 1));
-
-  const m = l - C/2;
-
-  let r=0,g=0,b=0;
-
-  if (h < 60) { r=C; g=X; b=0; }
-
-  else if (h < 120) { r=X; g=C; b=0; }
-
-  else if (h < 180) { r=0; g=C; b=X; }
-
-  else if (h < 240) { r=0; g=X; b=C; }
-
-  else if (h < 300) { r=X; g=0; b=C; }
-
-  else { r=C; g=0; b=X; }
-
-  r = Math.round((r + m) * 255);
-
-  g = Math.round((g + m) * 255);
-
-  b = Math.round((b + m) * 255);
-
-  const hex = '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
-
-  return hex;
-
-}
-
-function complementaryHex(hex) {
-
-  const hsl = hexToHsl(hex);
-
-  const newH = (hsl.h + 180) % 360;
-
-  return hslToHex(newH, hsl.s, hsl.l);
-
-}
-
-
-
-/* ---------- Control Panel: create pickers dynamically ---------- */
-
-const pickers = []; // { inputEl, enableEl, index }
-
-function createControls() {
-
-  pickersContainer.innerHTML = '';
-
-  for (let i=0;i<4;i++){
-
-    const wrapper = document.createElement('div');
-
-    wrapper.className = 'control-group';
-
-    wrapper.dataset.index = i;
-
-
-
-    const colorRow = document.createElement('div');
-
-    colorRow.className = 'color-row';
-
-
-
-    const input = document.createElement('input');
-
-    input.type = 'color';
-
-    input.className = 'color-input';
-
-    input.value = DEFAULT_COLORS[i] || '#ffffff';
-
-    input.title = `Color ${i+1}`;
-
-    input.setAttribute('aria-label', `Color ${i+1}`);
-
-
-
-    const meta = document.createElement('div');
-
-    meta.className = 'color-meta';
-
-
-
-    const enableLabel = document.createElement('label');
-
-    enableLabel.className = 'toggle';
-
-    enableLabel.title = 'Enable / disable this color';
-
-
-
-    const enable = document.createElement('input');
-
-    enable.type = 'checkbox';
-
-    enable.checked = true;
-
-    enable.setAttribute('aria-checked','true');
-
-
-
-    const text = document.createElement('span');
-
-    text.textContent = `Color ${i+1}`;
-
-
-
-    const clearBtn = document.createElement('button');
-
-    clearBtn.type = 'button';
-
-    clearBtn.className = 'small-btn';
-
-    clearBtn.textContent = 'Disable';
-
-    clearBtn.title = 'Disable this color';
-
-
-
-    enableLabel.appendChild(enable);
-
-    enableLabel.appendChild(text);
-
-
-
-    meta.appendChild(enableLabel);
-
-    meta.appendChild(clearBtn);
-
-
-
-    colorRow.appendChild(input);
-
-    colorRow.appendChild(meta);
-
-
-
-    wrapper.appendChild(colorRow);
-
-    pickersContainer.appendChild(wrapper);
-
-
-
-    // store references
-
-    pickers.push({ inputEl: input, enableEl: enable, clearBtn, wrapper });
-
-
-
-    // events
-
-    input.addEventListener('input', () => onColorsChanged());
-
-    enable.addEventListener('change', () => {
-
-      enable.setAttribute('aria-checked', enable.checked.toString());
-
-      clearBtn.textContent = enable.checked ? 'Disable' : 'Enable';
-
-      onColorsChanged();
-
-    });
-
-    clearBtn.addEventListener('click', () => {
-
-      enable.checked = !enable.checked;
-
-      enable.setAttribute('aria-checked', enable.checked.toString());
-
-      clearBtn.textContent = enable.checked ? 'Disable' : 'Enable';
-
-      onColorsChanged();
-
-    });
-
-  }
-
-}
-
-createControls();
-
-
-
-/* ---------- Color management ---------- */
-
-function getActiveColors() {
-
-  const active = [];
-
-  for (const p of pickers) {
-
-    if (p.enableEl.checked) active.push(p.inputEl.value);
-
-  }
-
-  // If none active, fallback to defaults
-
-  if (active.length === 0) {
-
-    return DEFAULT_COLORS.slice(0, MIN_ACTIVE_COLORS);
-
-  }
-
-  // If only one active, generate complementary to ensure at least 2
-
-  if (active.length === 1) {
-
-    const comp = complementaryHex(active[0]);
-
-    return [active[0], comp];
-
-  }
-
-  return active;
-
-}
-
-
-
-function onColorsChanged() {
-
-  // assign node colors and update UI state if necessary
-
-  const active = getActiveColors();
-
-  assignColorsToNodes(active);
-
-}
-
-
-
-/* ---------- Node system ---------- */
-
-let nodes = [];
-
-function createNodes() {
-
-  nodes = [];
-
-  const w = canvas.clientWidth;
-
-  const h = canvas.clientHeight;
-
-  const diag = Math.hypot(w, h);
-
-  const activeColors = getActiveColors();
-
-
-
-  for (let i = 0; i < NODE_COUNT; i++) {
-
-    // broad coverage + lava-lamp style motion
-
-    const baseX = w * 0.5;
-
-    const baseY = h * 0.5;
-
-    const radius = lerp(Math.min(w,h) * 0.45, Math.min(w,h) * 0.80, Math.random());
-
-    const floatSpeed = lerp(0.20, 0.80, Math.random());
-
-    const parallax = lerp(0.02, 0.22, Math.random()); // how strongly it follows mouse
-
-    const wobble = Math.random() * Math.PI * 2;
-
-    const color = activeColors[i % activeColors.length];
-
-
-
-    // Sweeping figure-8 / Lissajous orbits
-
-    const pathAmpX = lerp(w * 0.18, w * 0.42, Math.random());
-
-    const pathAmpY = lerp(h * 0.16, h * 0.40, Math.random());
-
-    const pathFreqX = lerp(0.08, 0.19, Math.random());
-
-    const pathFreqY = lerp(0.11, 0.23, Math.random());
-
-    const pathPhaseX = Math.random() * Math.PI * 2;
-
-    const pathPhaseY = Math.random() * Math.PI * 2;
-
-
-
-    // Harmonic local liquid offsets
-
-    const hAmp1 = lerp(diag * 0.010, diag * 0.040, Math.random());
-
-    const hAmp2 = lerp(diag * 0.012, diag * 0.034, Math.random());
-
-    const hAmp3 = lerp(diag * 0.008, diag * 0.028, Math.random());
-
-    const hFreq1 = lerp(0.45, 0.95, Math.random());
-
-    const hFreq2 = lerp(0.24, 0.68, Math.random());
-
-    const hFreq3 = lerp(0.12, 0.40, Math.random());
-
-    const hPhase1 = Math.random() * Math.PI * 2;
-
-    const hPhase2 = Math.random() * Math.PI * 2;
-
-    const hPhase3 = Math.random() * Math.PI * 2;
-
-
-
-    // Asynchronous pulsing
-
-    const pulseSpeed = lerp(0.45, 1.25, Math.random());
-
-    const pulsePhase = Math.random() * Math.PI * 2;
-
-
-
-    nodes.push({
-
-      baseX, baseY,
-
-      x: baseX, y: baseY,
-
-      baseRadius: radius,
-
-      renderRadius: radius,
-
-      floatSpeed, parallax, wobble,
-
-      color,
-
-      pathAmpX, pathAmpY, pathFreqX, pathFreqY, pathPhaseX, pathPhaseY,
-
-      hAmp1, hAmp2, hAmp3, hFreq1, hFreq2, hFreq3, hPhase1, hPhase2, hPhase3,
-
-      pulseSpeed, pulsePhase
-
-    });
-
-  }
-
-}
-
-/* createNodes() will be called after the canvas is sized */
-
-
-
-/* Reassign node colors when active set changes */
-
-function assignColorsToNodes(activeColors) {
-
-  if (!activeColors || activeColors.length < 1) return;
-
-  for (let i=0;i<nodes.length;i++){
-
-    nodes[i].color = activeColors[i % activeColors.length];
-
-  }
-
-}
-
-
-
-/* ---------- Animation Loop ---------- */
-
-let rafId = null;
-
-let lastTime = 0;
-
-
-
-function animate(time = 0) {
-
-  const dt = Math.min(32, time - lastTime); // ms
-
-  lastTime = time;
-
-
-
-  // clear frame so additive blending starts from a clean slate
-
-  ctx.clearRect(0, 0, canvas.width / DPR, canvas.height / DPR);
-
-
-
-  // set additive blending for vibrant mixing
-
-  ctx.globalCompositeOperation = 'lighter';
-
-  ctx.globalAlpha = 1.0;
-
-
-
-  const w = canvas.clientWidth;
-
-  const h = canvas.clientHeight;
-
-  const cx = w / 2;
-
-  const cy = h / 2;
-
-
-
-  // mouse smoothing and default center drift
-
-  if (mouse.x === null || mouse.y === null) {
-
-    mouse.px = lerp(mouse.px ?? cx, cx, 0.02);
-
-    mouse.py = lerp(mouse.py ?? cy, cy, 0.02);
-
-  } else {
-
-    if (mouse.px == null) { mouse.px = mouse.x; mouse.py = mouse.y; }
-
-    mouse.px = lerp(mouse.px, mouse.x, 0.12);
-
-    mouse.py = lerp(mouse.py, mouse.y, 0.12);
-
-  }
-
-  mouse.vx = lerp(mouse.vx, 0, 0.03);
-
-  mouse.vy = lerp(mouse.vy, 0, 0.03);
-
-  mouse.speed = Math.hypot(mouse.vx, mouse.vy) * 1000;
-
-
-
-  // draw nodes with multi-frequency fluid motion + magnetic mouse warp
-
-  for (let i = 0; i < nodes.length; i++) {
-
-    const n = nodes[i];
-
-    const timeSec = time * 0.001;
-
-
-
-    // Lissajous / figure-8 drift
-
-    const orbX = Math.sin(timeSec * n.pathFreqX + n.pathPhaseX) * n.pathAmpX;
-
-    const orbY = Math.sin(timeSec * (n.pathFreqY * 2.0) + n.pathPhaseY) * n.pathAmpY * 0.6;
-
-    const lissajousX = n.baseX + orbX;
-
-    const lissajousY = n.baseY + orbY;
-
-
-
-    // Harmonic liquid offsets
-
-    const harmonicX =
-
-      Math.sin(timeSec * n.hFreq1 + n.hPhase1) * n.hAmp1 +
-
-      Math.cos(timeSec * n.hFreq2 + n.hPhase2) * n.hAmp2 +
-
-      Math.sin(timeSec * n.hFreq3 + n.hPhase3) * n.hAmp3;
-
-    const harmonicY =
-
-      Math.cos(timeSec * n.hFreq1 + n.hPhase1) * n.hAmp1 +
-
-      Math.sin(timeSec * n.hFreq2 + n.hPhase2) * n.hAmp2 +
-
-      Math.cos(timeSec * n.hFreq3 + n.hPhase3) * n.hAmp3;
-
-
-
-    // additional slow breathing drift
-
-    const floatX = Math.sin(timeSec * (n.floatSpeed * 1.25) + n.wobble) * (n.baseRadius * 0.06);
-
-    const floatY = Math.cos(timeSec * (n.floatSpeed * 1.05) + n.wobble) * (n.baseRadius * 0.05);
-
-
-
-    const offsetX = (mouse.px - cx) * n.parallax * 0.4;
-
-    const offsetY = (mouse.py - cy) * n.parallax * 0.4;
-
-
-
-    let targetX = lissajousX + harmonicX + floatX + offsetX;
-
-    let targetY = lissajousY + harmonicY + floatY + offsetY;
-
-
-
-    // Fluid ripple + magnetic warp around cursor
-
-    const mdx = targetX - mouse.px;
-
-    const mdy = targetY - mouse.py;
-
-    const dist = Math.hypot(mdx, mdy) || 1;
-
-    const warpRange = n.baseRadius * 0.85;
-
-    const proximity = clamp(1 - dist / warpRange, 0, 1);
-
-    const ripple = Math.sin(timeSec * 8.5 - dist * 0.018 + i * 0.6);
-
-    const speedFactor = clamp(mouse.speed / 900, 0, 2.2);
-
-    const dirX = mdx / dist;
-
-    const dirY = mdy / dist;
-
-
-
-    // positive/negative ripple alternates push/pull; speed adds magnetic bend
-
-    const warpForce = proximity * (20 + speedFactor * 36) * ripple;
-
-    const magneticForce = proximity * speedFactor * 28;
-
-    targetX += dirX * warpForce + mouse.vx * magneticForce;
-
-    targetY += dirY * warpForce + mouse.vy * magneticForce;
-
-
-
-    // smooth movement
-
-    n.x = lerp(n.x, targetX, 0.07 + n.parallax * 0.05);
-
-    n.y = lerp(n.y, targetY, 0.07 + n.parallax * 0.05);
-
-
-
-    // asynchronous pulsing + mouse ripple-driven radius warp
-
-    const pulse = 1 + 0.35 * Math.sin(timeSec * n.pulseSpeed + n.pulsePhase);
-
-    const radiusWarp = proximity * (Math.abs(ripple) * 18 + speedFactor * 24);
-
-    const targetRadius = n.baseRadius * pulse + radiusWarp;
-
-    n.renderRadius = lerp(n.renderRadius, targetRadius, 0.11);
-
-
-
-    // draw vibrant neon gradient
-
-    const rad = n.renderRadius;
-
-    const g = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, rad);
-
-    g.addColorStop(0, hexToRgba(n.color, 0.95));
-
-    g.addColorStop(0.35, hexToRgba(n.color, 0.78));
-
-    g.addColorStop(0.65, hexToRgba(n.color, 0.42));
-
-    g.addColorStop(1, hexToRgba(n.color, 0.0));
-
-
-
-    ctx.fillStyle = g;
-
-    ctx.beginPath();
-
-    ctx.arc(n.x, n.y, rad, 0, Math.PI * 2);
-
-    ctx.fill();
-
-  }
-
-
-
-  // reset composite for any UI overlays
-
-  ctx.globalCompositeOperation = 'source-over';
-
-
-
-  rafId = requestAnimationFrame(animate);
-
-}
-
-
-
-/* ---------- UI Toggle & Keyboard Bindings ---------- */
-
-let uiHidden = false;
-
-function setUiHidden(v) {
-
-  uiHidden = !!v;
-
-  if (uiHidden) {
-
-    panel.classList.add('hidden');
-
-    toggleUiBtn.textContent = 'Show UI';
-
-    toggleUiBtn.title = 'Show UI (H / Esc)';
-
-  } else {
-
-    panel.classList.remove('hidden');
-
-    toggleUiBtn.textContent = 'Hide UI';
-
-    toggleUiBtn.title = 'Hide UI (H / Esc)';
-
-  }
-
-}
-
-toggleUiBtn.addEventListener('click', () => setUiHidden(!uiHidden));
-
-window.addEventListener('keydown', (e) => {
-
-  if (e.key === 'h' || e.key === 'H' || e.key === 'Escape') {
-
-    setUiHidden(!uiHidden);
-
-  }
-
-});
-
-
-
-/* reset to defaults */
-
-resetBtn.addEventListener('click', () => {
-
-  for (let i=0;i<pickers.length;i++){
-
-    pickers[i].inputEl.value = DEFAULT_COLORS[i] || '#ffffff';
-
-    pickers[i].enableEl.checked = true;
-
-    pickers[i].clearBtn.textContent = 'Disable';
-
-  }
-
-  onColorsChanged();
-
-});
-
-
-
-/* ---------- Initialize and start ---------- */
-
-function init() {
-
-  fitFullScreenCanvas();
-
-  createNodes();
-
-  assignColorsToNodes(getActiveColors());
-
-  if (rafId) cancelAnimationFrame(rafId);
-
-  rafId = requestAnimationFrame(animate);
-
-}
-
-init();
-
-
-
-/* Recreate nodes when screen size changes significantly */
-
-let resizeTimeout;
-
-window.addEventListener('resize', () => {
-
-  clearTimeout(resizeTimeout);
-
-  resizeTimeout = setTimeout(() => {
-
-    fitFullScreenCanvas();
-
-    createNodes();
-
-    assignColorsToNodes(getActiveColors());
-
-  }, 120);
-
-}, { passive: true });
-
-
-
-/* make controls accessible via keyboard focus */
-
-panel.addEventListener('keydown', (e) => {
-
-  if (e.key === 'Escape') { setUiHidden(true); }
-
-});
-
-
-
-/* On color change, reassign and repaint */
-
-for (const p of pickers) {
-
-  p.inputEl.addEventListener('input', () => {
-
-    assignColorsToNodes( getActiveColors() );
-
-  });
-
-  p.enableEl.addEventListener('change', () => {
-
-    assignColorsToNodes( getActiveColors() );
-
-  });
-
-}
-
-
-
-/* Ensure we have at least 2 active colors when someone disables many */
-
-const observer = new MutationObserver(() => {
-
-  // ensure min count
-
-  const active = getActiveColors();
-
-  if (active.length < MIN_ACTIVE_COLORS) {
-
-    // if somehow we ended up with <2, ensure assignment provides at least two by feeding back
-
-    assignColorsToNodes(active);
-
-  }
-
-});
-
-observer.observe(pickersContainer, { childList: true, subtree: true });
-
-
-
-/* Accessibility: clicking panel shouldn't blur pointer events */
-
-panel.addEventListener('pointerdown', (e) => {
-
-  e.stopPropagation();
-
-});
-
-
-
-/* Make sure canvas always fills entire window (cover potential scrollbars) */
-
-function fitFullScreenCanvas() {
-
-  canvas.style.width = window.innerWidth + 'px';
-
-  canvas.style.height = window.innerHeight + 'px';
-
-  resizeCanvas();
-
-}
-
-window.addEventListener('resize', fitFullScreenCanvas, { passive: true });
-
-
-
-/* expose a small API for debugging (optional) */
-
-window.__meshGradient = {
-
-  getActiveColors,
-
-  setColor(index, hex) {
-
-    if (index >=0 && index < pickers.length) {
-
-      pickers[index].inputEl.value = hex;
-
-      onColorsChanged();
-
-    }
-
-  }
-
+window.addEventListener('resize', resizeAll, { passive: true });
+resizeAll();
+
+// ─── Mouse Pointer Tracking ───
+const mouse = {
+  x: W / 2, y: H / 2, px: W / 2, py: H / 2,
+  sx: W / 2, sy: H / 2,
+  vx: 0, vy: 0, speed: 0, lastMoveAt: 0
 };
 
+window.addEventListener('pointermove', (e) => {
+  const now = performance.now();
+  const dt = Math.max(8, now - (mouse.lastMoveAt || now));
+  const nVx = (e.clientX - mouse.x) / dt;
+  const nVy = (e.clientY - mouse.y) / dt;
+
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+  mouse.vx = lerp(mouse.vx, nVx, 0.45);
+  mouse.vy = lerp(mouse.vy, nVy, 0.45);
+  mouse.speed = Math.hypot(mouse.vx, mouse.vy) * 1000;
+  mouse.lastMoveAt = now;
+}, { passive: true });
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+function hexToRgba(hex, alpha = 1) {
+  const h = hex.replace('#', '');
+  const bigint = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
+  const r = (bigint >> 16) & 255;
+  const g = (bigint >> 8) & 255;
+  const b = bigint & 255;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+function hexToRgb(hex) {
+  const h = hex.replace('#', '');
+  const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+// ============================================================
+// PART 1: MESH GRADIENT STATE & ENGINE
+// ============================================================
+const DEFAULT_MESH_COLORS = ['#00E5FF', '#FFEB3B', '#FF3D00', '#D500F9'];
+let meshNodeCount = 10;
+let meshNodes = [];
+const meshPickers = [];
+
+function createMeshControls() {
+  const container = document.getElementById('meshPickers');
+  container.innerHTML = '';
+  for (let i = 0; i < 4; i++) {
+    const row = document.createElement('div');
+    row.className = 'mesh-picker-row';
+
+    const left = document.createElement('div');
+    left.className = 'left';
+
+    const input = document.createElement('input');
+    input.type = 'color';
+    input.value = DEFAULT_MESH_COLORS[i];
+
+    const label = document.createElement('label');
+    label.textContent = `Color ${i + 1}`;
+
+    left.appendChild(input);
+    left.appendChild(label);
+
+    const swLabel = document.createElement('label');
+    swLabel.className = 'switch';
+    const chk = document.createElement('input');
+    chk.type = 'checkbox';
+    chk.checked = true;
+    const sld = document.createElement('span');
+    sld.className = 'slider';
+    swLabel.appendChild(chk);
+    swLabel.appendChild(sld);
+
+    row.appendChild(left);
+    row.appendChild(swLabel);
+    container.appendChild(row);
+
+    meshPickers.push({ input, chk });
+
+    input.addEventListener('input', () => updateMeshColors());
+    chk.addEventListener('change', () => updateMeshColors());
+  }
+}
+createMeshControls();
+
+function getActiveMeshColors() {
+  const active = [];
+  meshPickers.forEach(p => {
+    if (p.chk.checked) active.push(p.input.value);
+  });
+  if (active.length === 0) return DEFAULT_MESH_COLORS.slice(0, 2);
+  if (active.length === 1) return [active[0], '#61dafb'];
+  return active;
+}
+
+function updateMeshColors() {
+  const active = getActiveMeshColors();
+  for (let i = 0; i < meshNodes.length; i++) {
+    meshNodes[i].color = active[i % active.length];
+  }
+}
+
+function createMeshNodes() {
+  meshNodes = [];
+  const diag = Math.hypot(W, H);
+  const activeColors = getActiveMeshColors();
+
+  for (let i = 0; i < meshNodeCount; i++) {
+    const baseX = W * 0.5;
+    const baseY = H * 0.5;
+    const radius = lerp(Math.min(W, H) * 0.45, Math.min(W, H) * 0.80, Math.random());
+    const floatSpeed = lerp(0.20, 0.80, Math.random());
+    const parallax = lerp(0.02, 0.22, Math.random());
+    const wobble = Math.random() * Math.PI * 2;
+    const color = activeColors[i % activeColors.length];
+
+    const pathAmpX = lerp(W * 0.18, W * 0.42, Math.random());
+    const pathAmpY = lerp(H * 0.16, H * 0.40, Math.random());
+    const pathFreqX = lerp(0.08, 0.19, Math.random());
+    const pathFreqY = lerp(0.11, 0.23, Math.random());
+    const pathPhaseX = Math.random() * Math.PI * 2;
+    const pathPhaseY = Math.random() * Math.PI * 2;
+
+    const hAmp1 = lerp(diag * 0.010, diag * 0.040, Math.random());
+    const hAmp2 = lerp(diag * 0.012, diag * 0.034, Math.random());
+    const hAmp3 = lerp(diag * 0.008, diag * 0.028, Math.random());
+    const hFreq1 = lerp(0.45, 0.95, Math.random());
+    const hFreq2 = lerp(0.24, 0.68, Math.random());
+    const hFreq3 = lerp(0.12, 0.40, Math.random());
+    const hPhase1 = Math.random() * Math.PI * 2;
+    const hPhase2 = Math.random() * Math.PI * 2;
+    const hPhase3 = Math.random() * Math.PI * 2;
+
+    const pulseSpeed = lerp(0.45, 1.25, Math.random());
+    const pulsePhase = Math.random() * Math.PI * 2;
+
+    meshNodes.push({
+      baseX, baseY, x: baseX, y: baseY,
+      baseRadius: radius, renderRadius: radius,
+      floatSpeed, parallax, wobble, color,
+      pathAmpX, pathAmpY, pathFreqX, pathFreqY, pathPhaseX, pathPhaseY,
+      hAmp1, hAmp2, hAmp3, hFreq1, hFreq2, hFreq3, hPhase1, hPhase2, hPhase3,
+      pulseSpeed, pulsePhase
+    });
+  }
+}
+createMeshNodes();
+
+function renderMesh(timeSec) {
+  meshCtx.clearRect(0, 0, W, H);
+  meshCtx.globalCompositeOperation = 'lighter';
+
+  const cx = W / 2;
+  const cy = H / 2;
+
+  for (let i = 0; i < meshNodes.length; i++) {
+    const n = meshNodes[i];
+
+    const orbX = Math.sin(timeSec * n.pathFreqX + n.pathPhaseX) * n.pathAmpX;
+    const orbY = Math.sin(timeSec * (n.pathFreqY * 2.0) + n.pathPhaseY) * n.pathAmpY * 0.6;
+    const lissajousX = n.baseX + orbX;
+    const lissajousY = n.baseY + orbY;
+
+    const harmonicX = Math.sin(timeSec * n.hFreq1 + n.hPhase1) * n.hAmp1 +
+                      Math.cos(timeSec * n.hFreq2 + n.hPhase2) * n.hAmp2 +
+                      Math.sin(timeSec * n.hFreq3 + n.hPhase3) * n.hAmp3;
+    const harmonicY = Math.cos(timeSec * n.hFreq1 + n.hPhase1) * n.hAmp1 +
+                      Math.sin(timeSec * n.hFreq2 + n.hPhase2) * n.hAmp2 +
+                      Math.cos(timeSec * n.hFreq3 + n.hPhase3) * n.hAmp3;
+
+    const floatX = Math.sin(timeSec * (n.floatSpeed * 1.25) + n.wobble) * (n.baseRadius * 0.06);
+    const floatY = Math.cos(timeSec * (n.floatSpeed * 1.05) + n.wobble) * (n.baseRadius * 0.05);
+
+    const offsetX = (mouse.px - cx) * n.parallax * 0.4;
+    const offsetY = (mouse.py - cy) * n.parallax * 0.4;
+
+    let targetX = lissajousX + harmonicX + floatX + offsetX;
+    let targetY = lissajousY + harmonicY + floatY + offsetY;
+
+    const mdx = targetX - mouse.px;
+    const mdy = targetY - mouse.py;
+    const dist = Math.hypot(mdx, mdy) || 1;
+    const warpRange = n.baseRadius * 0.85;
+    const proximity = clamp(1 - dist / warpRange, 0, 1);
+    const ripple = Math.sin(timeSec * 8.5 - dist * 0.018 + i * 0.6);
+    const speedFactor = clamp(mouse.speed / 900, 0, 2.2);
+
+    const warpForce = proximity * (20 + speedFactor * 36) * ripple;
+    const magneticForce = proximity * speedFactor * 28;
+    targetX += (mdx / dist) * warpForce + mouse.vx * magneticForce;
+    targetY += (mdy / dist) * warpForce + mouse.vy * magneticForce;
+
+    n.x = lerp(n.x, targetX, 0.07 + n.parallax * 0.05);
+    n.y = lerp(n.y, targetY, 0.07 + n.parallax * 0.05);
+
+    const pulse = 1 + 0.35 * Math.sin(timeSec * n.pulseSpeed + n.pulsePhase);
+    const radiusWarp = proximity * (Math.abs(ripple) * 18 + speedFactor * 24);
+    n.renderRadius = lerp(n.renderRadius, n.baseRadius * pulse + radiusWarp, 0.11);
+
+    const rad = n.renderRadius;
+    const g = meshCtx.createRadialGradient(n.x, n.y, 0, n.x, n.y, rad);
+    g.addColorStop(0, hexToRgba(n.color, 0.95));
+    g.addColorStop(0.35, hexToRgba(n.color, 0.78));
+    g.addColorStop(0.65, hexToRgba(n.color, 0.42));
+    g.addColorStop(1, hexToRgba(n.color, 0.0));
+
+    meshCtx.fillStyle = g;
+    meshCtx.beginPath();
+    meshCtx.arc(n.x, n.y, rad, 0, Math.PI * 2);
+    meshCtx.fill();
+  }
+
+  meshCtx.globalCompositeOperation = 'source-over';
+}
+
+// ============================================================
+// PART 2: FLOATING LINES (ROAMING WAVES) ENGINE
+// ============================================================
+const WS = {
+  enabledWaves: { top: true, middle: true, bottom: true },
+  lineCount: 8,
+  lineDistance: 8,
+  lineWidth: 1.5,
+  bendRadius: 8,
+  bendStrength: -2,
+  turbulence: 35,
+  animSpeed: 1,
+  driftSpeed: 0.8,
+  interactive: true,
+  parallax: true,
+  gradientStart: '#e945f5',
+  gradientMid: '#6f6f6f',
+  gradientEnd: '#6a6a6a',
+  glowIntensity: 12
+};
+
+function noise2D(x, y) {
+  let n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453123;
+  return (n - Math.floor(n)) * 2 - 1;
+}
+function smoothNoise(x, y) {
+  const ix = Math.floor(x), iy = Math.floor(y);
+  const fx = x - ix, fy = y - iy;
+  const sx = fx * fx * (3 - 2 * fx);
+  const sy = fy * fy * (3 - 2 * fy);
+  const n00 = noise2D(ix, iy);
+  const n10 = noise2D(ix + 1, iy);
+  const n01 = noise2D(ix, iy + 1);
+  const n11 = noise2D(ix + 1, iy + 1);
+  return lerp(lerp(n00, n10, sx), lerp(n01, n11, sx), sy);
+}
+function fbm(x, y, oct = 3) {
+  let v = 0, a = 0.5, f = 1;
+  for (let i = 0; i < oct; i++) {
+    v += a * smoothNoise(x * f, y * f);
+    a *= 0.5;
+    f *= 2.1;
+  }
+  return v;
+}
+
+class WaveGroup {
+  constructor(id) {
+    this.id = id;
+    this.x = Math.random() * W;
+    this.y = Math.random() * H;
+    this.rx = this.x;
+    this.ry = this.y;
+    this.orbitRadius = lerp(100, 320, Math.random());
+    this.orbitSpeed = lerp(0.15, 0.45, Math.random()) * (Math.random() < 0.5 ? 1 : -1);
+    this.orbitPhase = Math.random() * Math.PI * 2;
+    this.lissA = lerp(0.7, 1.4, Math.random());
+    this.lissB = lerp(0.5, 1.2, Math.random());
+    this.homeX = W * lerp(0.15, 0.85, Math.random());
+    this.homeY = H * lerp(0.15, 0.85, Math.random());
+    this.homeTimer = Math.random() * 200;
+    this.rotation = Math.random() * Math.PI * 2;
+    this.rotationSpeed = (Math.random() - 0.5) * 0.14;
+    this.span = lerp(W * 0.5, W * 1.1, Math.random());
+    this.noiseSeedX = Math.random() * 1000;
+    this.noiseSeedY = Math.random() * 1000;
+    this.depth = lerp(0.3, 1.0, Math.random());
+  }
+
+  update(t, dt) {
+    const drift = WS.driftSpeed;
+    const speed = WS.animSpeed;
+
+    this.homeTimer += dt * 0.4 * drift;
+    if (this.homeTimer > 200) {
+      this.homeTimer = 0;
+      this.homeX = W * lerp(0.1, 0.9, Math.random());
+      this.homeY = H * lerp(0.1, 0.9, Math.random());
+    }
+
+    const orbAngle = t * this.orbitSpeed * speed * 0.3 + this.orbitPhase;
+    const orbX = Math.sin(orbAngle * this.lissA) * this.orbitRadius * (drift + 0.2);
+    const orbY = Math.cos(orbAngle * this.lissB) * this.orbitRadius * 0.7 * (drift + 0.2);
+
+    const wanderX = fbm(t * 0.08 * drift + this.noiseSeedX, this.id * 3.7) * 120 * drift;
+    const wanderY = fbm(this.id * 5.1, t * 0.06 * drift + this.noiseSeedY) * 100 * drift;
+
+    let targetX = this.homeX + orbX + wanderX;
+    let targetY = this.homeY + orbY + wanderY;
+
+    const pad = 200;
+    if (targetX < -pad) targetX += W + pad * 2;
+    if (targetX > W + pad) targetX -= W + pad * 2;
+    if (targetY < -pad) targetY += H + pad * 2;
+    if (targetY > H + pad) targetY -= H + pad * 2;
+
+    this.x = targetX;
+    this.y = targetY;
+
+    this.rx = lerp(this.rx, this.x, 0.04 + drift * 0.02);
+    this.ry = lerp(this.ry, this.y, 0.04 + drift * 0.02);
+    this.rotation += this.rotationSpeed * dt * speed * 0.15;
+
+    if (WS.interactive) {
+      const mdx = mouse.sx - this.rx;
+      const mdy = mouse.sy - this.ry;
+      const mDist = Math.hypot(mdx, mdy) || 1;
+      const influence = Math.max(0, 1 - mDist / 500) * 60;
+      this.rx += (mdx / mDist) * influence * dt * 0.3;
+      this.ry += (mdy / mDist) * influence * dt * 0.3;
+    }
+
+    if (WS.parallax) {
+      const px = (mouse.sx - W / 2) * this.depth * 0.05;
+      const py = (mouse.sy - H / 2) * this.depth * 0.05;
+      this.rx += px * dt * 0.2;
+      this.ry += py * dt * 0.2;
+    }
+  }
+}
+
+let waveGroups = [];
+function initWaveGroups() {
+  waveGroups = [];
+  for (let i = 0; i < 3; i++) {
+    const g = new WaveGroup(i);
+    g.homeX = W * (0.2 + i * 0.3);
+    g.homeY = H * (0.2 + i * 0.3);
+    g.x = g.homeX; g.y = g.homeY;
+    g.rx = g.x; g.ry = g.y;
+    waveGroups.push(g);
+  }
+}
+initWaveGroups();
+
+function renderWaves(t, dt) {
+  wavesCtx.clearRect(0, 0, W, H);
+
+  const waveNames = ['top', 'middle', 'bottom'];
+  for (let i = 0; i < waveGroups.length; i++) {
+    if (!WS.enabledWaves[waveNames[i]]) continue;
+    waveGroups[i].update(t, dt);
+
+    const group = waveGroups[i];
+    const count = WS.lineCount;
+    const dist = WS.lineDistance;
+    const bendR = WS.bendRadius;
+    const bendS = WS.bendStrength;
+    const turbulence = WS.turbulence * 0.01;
+    const speed = WS.animSpeed;
+    const lw = WS.lineWidth;
+    const glow = WS.glowIntensity;
+
+    const cx = group.rx;
+    const cy = group.ry;
+    const rot = group.rotation;
+    const span = group.span;
+    const segments = 60;
+
+    const startRgb = hexToRgb(WS.gradientStart);
+    const midRgb = hexToRgb(WS.gradientMid);
+    const endRgb = hexToRgb(WS.gradientEnd);
+
+    for (let li = 0; li < count; li++) {
+      const lineOffset = (li - count / 2) * dist;
+      const colorT = count > 1 ? li / (count - 1) : 0.5;
+      let r, g, b;
+      if (colorT < 0.5) {
+        const ct = colorT * 2;
+        r = lerp(startRgb[0], midRgb[0], ct);
+        g = lerp(startRgb[1], midRgb[1], ct);
+        b = lerp(startRgb[2], midRgb[2], ct);
+      } else {
+        const ct = (colorT - 0.5) * 2;
+        r = lerp(midRgb[0], endRgb[0], ct);
+        g = lerp(midRgb[1], endRgb[1], ct);
+        b = lerp(midRgb[2], endRgb[2], ct);
+      }
+
+      const edgeFade = 1 - Math.abs(li - count / 2) / (count / 2 + 1);
+      const alpha = Math.max(0.18, edgeFade * 0.9);
+
+      wavesCtx.strokeStyle = `rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},${alpha})`;
+      wavesCtx.lineWidth = lw;
+      wavesCtx.lineCap = 'round';
+      wavesCtx.lineJoin = 'round';
+
+      if (glow > 0) {
+        wavesCtx.shadowColor = `rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},${alpha * 0.7})`;
+        wavesCtx.shadowBlur = glow;
+      } else {
+        wavesCtx.shadowBlur = 0;
+      }
+
+      wavesCtx.beginPath();
+      for (let si = 0; si <= segments; si++) {
+        const segT = si / segments;
+        const localX = (segT - 0.5) * span;
+        let localY = lineOffset;
+
+        const waveFreq = bendR * 0.12;
+        const wavePhase = t * speed * 0.8 + i * 2.1 + li * 0.3;
+        localY += Math.sin(localX * waveFreq * 0.01 + wavePhase) * bendS * 12;
+        localY += Math.sin(localX * waveFreq * 0.025 + wavePhase * 0.7 + li * 0.5) * bendS * 5;
+
+        if (turbulence > 0) {
+          const nx = fbm(localX * 0.003 + t * speed * 0.15 + group.noiseSeedX, li * 0.7 + i * 11);
+          const ny = fbm(li * 1.3 + i * 7, localX * 0.004 + t * speed * 0.12 + group.noiseSeedY);
+          localY += nx * turbulence * 80;
+          localY += ny * turbulence * 30 * Math.sin(segT * Math.PI);
+        }
+
+        const cosR = Math.cos(rot);
+        const sinR = Math.sin(rot);
+        const worldX = cx + localX * cosR - localY * sinR;
+        const worldY = cy + localX * sinR + localY * cosR;
+
+        if (si === 0) wavesCtx.moveTo(worldX, worldY);
+        else wavesCtx.lineTo(worldX, worldY);
+      }
+      wavesCtx.stroke();
+    }
+    wavesCtx.shadowBlur = 0;
+  }
+}
+
+// ============================================================
+// PART 3: MAIN LOOP
+// ============================================================
+let lastTime = 0;
+function animate(time = 0) {
+  const dt = Math.min(32, time - lastTime) * 0.001;
+  lastTime = time;
+  const timeSec = time * 0.001;
+
+  // Smooth mouse
+  mouse.px = lerp(mouse.px, mouse.x, 0.12);
+  mouse.py = lerp(mouse.py, mouse.y, 0.12);
+  mouse.sx = lerp(mouse.sx, mouse.x, 0.08);
+  mouse.sy = lerp(mouse.sy, mouse.y, 0.08);
+
+  // Render both layers
+  renderMesh(timeSec);
+  renderWaves(timeSec, dt);
+
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+
+// ============================================================
+// PART 4: UI BINDINGS & TABS
+// ============================================================
+const panel = document.getElementById('panel');
+const toggleUiBtn = document.getElementById('toggleUiBtn');
+let uiHidden = false;
+
+function toggleUI(val) {
+  uiHidden = typeof val === 'boolean' ? val : !uiHidden;
+  panel.classList.toggle('hidden', uiHidden);
+  toggleUiBtn.textContent = uiHidden ? 'Show' : 'Hide';
+}
+toggleUiBtn.addEventListener('click', () => toggleUI());
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'h' || e.key === 'H' || e.key === 'Escape') toggleUI();
+});
+panel.addEventListener('pointerdown', e => e.stopPropagation());
+
+// Tab Switching
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tab).classList.add('active');
+  });
+});
+
+// Waves Settings Bindings
+const wTop = document.getElementById('wTop');
+const wMid = document.getElementById('wMid');
+const wBot = document.getElementById('wBot');
+const wLineCount = document.getElementById('wLineCount');
+const wLineDist = document.getElementById('wLineDist');
+const wLineWidth = document.getElementById('wLineWidth');
+const wBendRad = document.getElementById('wBendRad');
+const wBendStr = document.getElementById('wBendStr');
+const wTurb = document.getElementById('wTurb');
+const wAnimSpeed = document.getElementById('wAnimSpeed');
+const wDriftSpeed = document.getElementById('wDriftSpeed');
+const wInteractive = document.getElementById('wInteractive');
+const wParallax = document.getElementById('wParallax');
+const wGradStart = document.getElementById('wGradStart');
+const wGradMid = document.getElementById('wGradMid');
+const wGradEnd = document.getElementById('wGradEnd');
+const wGlow = document.getElementById('wGlow');
+
+function syncWaveUI() {
+  WS.enabledWaves.top = wTop.checked;
+  WS.enabledWaves.middle = wMid.checked;
+  WS.enabledWaves.bottom = wBot.checked;
+  WS.lineCount = parseInt(wLineCount.value);
+  WS.lineDistance = parseInt(wLineDist.value);
+  WS.lineWidth = parseFloat(wLineWidth.value);
+  WS.bendRadius = parseInt(wBendRad.value);
+  WS.bendStrength = parseFloat(wBendStr.value);
+  WS.turbulence = parseInt(wTurb.value);
+  WS.animSpeed = parseFloat(wAnimSpeed.value);
+  WS.driftSpeed = parseFloat(wDriftSpeed.value);
+  WS.interactive = wInteractive.checked;
+  WS.parallax = wParallax.checked;
+  WS.gradientStart = wGradStart.value;
+  WS.gradientMid = wGradMid.value;
+  WS.gradientEnd = wGradEnd.value;
+  WS.glowIntensity = parseInt(wGlow.value);
+
+  document.getElementById('wLineCountVal').textContent = WS.lineCount;
+  document.getElementById('wLineDistVal').textContent = WS.lineDistance;
+  document.getElementById('wLineWidthVal').textContent = WS.lineWidth;
+  document.getElementById('wBendRadVal').textContent = WS.bendRadius;
+  document.getElementById('wBendStrVal').textContent = WS.bendStrength;
+  document.getElementById('wTurbVal').textContent = WS.turbulence;
+  document.getElementById('wAnimSpeedVal').textContent = WS.animSpeed;
+  document.getElementById('wDriftSpeedVal').textContent = WS.driftSpeed;
+  document.getElementById('wGlowVal').textContent = WS.glowIntensity;
+}
+
+[wTop, wMid, wBot, wInteractive, wParallax].forEach(el => el.addEventListener('change', syncWaveUI));
+[wLineCount, wLineDist, wLineWidth, wBendRad, wBendStr, wTurb, wAnimSpeed, wDriftSpeed, wGlow].forEach(el => el.addEventListener('input', syncWaveUI));
+[wGradStart, wGradMid, wGradEnd].forEach(el => el.addEventListener('input', syncWaveUI));
+
+// Mesh Settings Bindings
+const mBlur = document.getElementById('mBlur');
+const mNodeCount = document.getElementById('mNodeCount');
+mBlur.addEventListener('input', () => {
+  meshCanvas.style.filter = `blur(${mBlur.value}px)`;
+  document.getElementById('mBlurVal').textContent = `${mBlur.value}px`;
+});
+mNodeCount.addEventListener('input', () => {
+  meshNodeCount = parseInt(mNodeCount.value);
+  document.getElementById('mNodeCountVal').textContent = meshNodeCount;
+  createMeshNodes();
+});
+
+// Layer Master Controls
+const layerWavesToggle = document.getElementById('layerWavesToggle');
+const layerWavesOpacity = document.getElementById('layerWavesOpacity');
+const layerMeshToggle = document.getElementById('layerMeshToggle');
+const layerMeshOpacity = document.getElementById('layerMeshOpacity');
+
+layerWavesToggle.addEventListener('change', () => {
+  wavesCanvas.style.display = layerWavesToggle.checked ? 'block' : 'none';
+});
+layerWavesOpacity.addEventListener('input', () => {
+  wavesCanvas.style.opacity = layerWavesOpacity.value;
+  document.getElementById('layerWavesOpacityVal').textContent = parseFloat(layerWavesOpacity.value).toFixed(2);
+});
+layerMeshToggle.addEventListener('change', () => {
+  meshCanvas.style.display = layerMeshToggle.checked ? 'block' : 'none';
+});
+layerMeshOpacity.addEventListener('input', () => {
+  meshCanvas.style.opacity = layerMeshOpacity.value;
+  document.getElementById('layerMeshOpacityVal').textContent = parseFloat(layerMeshOpacity.value).toFixed(2);
+});
+
+// Reset All
+document.getElementById('resetBtn').addEventListener('click', () => {
+  wTop.checked = true;
+  wMid.checked = true;
+  wBot.checked = true;
+  wLineCount.value = 8;
+  wLineDist.value = 8;
+  wLineWidth.value = 1.5;
+  wBendRad.value = 8;
+  wBendStr.value = -2;
+  wTurb.value = 35;
+  wAnimSpeed.value = 1;
+  wDriftSpeed.value = 0.8;
+  wInteractive.checked = true;
+  wParallax.checked = true;
+  wGradStart.value = '#e945f5';
+  wGradMid.value = '#6f6f6f';
+  wGradEnd.value = '#6a6a6a';
+  wGlow.value = 12;
+  syncWaveUI();
+  initWaveGroups();
+
+  meshPickers.forEach((p, idx) => {
+    p.input.value = DEFAULT_MESH_COLORS[idx];
+    p.chk.checked = true;
+  });
+  updateMeshColors();
+  mBlur.value = 65;
+  meshCanvas.style.filter = 'blur(65px)';
+  document.getElementById('mBlurVal').textContent = '65px';
+  mNodeCount.value = 10;
+  meshNodeCount = 10;
+  document.getElementById('mNodeCountVal').textContent = '10';
+  createMeshNodes();
+
+  layerWavesToggle.checked = true;
+  wavesCanvas.style.display = 'block';
+  layerWavesOpacity.value = 1;
+  wavesCanvas.style.opacity = '1';
+  document.getElementById('layerWavesOpacityVal').textContent = '1.0';
+
+  layerMeshToggle.checked = true;
+  meshCanvas.style.display = 'block';
+  layerMeshOpacity.value = 1;
+  meshCanvas.style.opacity = '1';
+  document.getElementById('layerMeshOpacityVal').textContent = '1.0';
+});
+
+syncWaveUI();
 </script>
-
 </body>
-
-</html> 
-
+</html>

@@ -1,0 +1,859 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Floating Lines — Animated Waves</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ===== Reset ===== */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: #0a0b10;
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    color: #e0e6f0;
+  }
+
+  /* ===== Canvas ===== */
+  canvas#waves {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    z-index: 0;
+  }
+
+  /* ===== Settings Panel ===== */
+  .settings-panel {
+    position: fixed;
+    right: 24px;
+    top: 24px;
+    width: 340px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    padding: 18px;
+    border-radius: 16px;
+    background: rgba(12, 12, 22, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    box-shadow: 0 12px 48px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04) inset;
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    z-index: 100;
+    transition: transform 280ms cubic-bezier(.4,.0,.2,1), opacity 280ms cubic-bezier(.4,.0,.2,1);
+    user-select: none;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.12) transparent;
+  }
+  .settings-panel::-webkit-scrollbar { width: 5px; }
+  .settings-panel::-webkit-scrollbar-track { background: transparent; }
+  .settings-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 10px; }
+
+  .settings-panel.collapsed {
+    transform: translateY(-14px) scale(0.97);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .panel-header h1 {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    background: linear-gradient(135deg, #e945f5, #61dafb);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .panel-header .subtitle {
+    font-size: 11px;
+    opacity: 0.6;
+    margin-top: 3px;
+    color: #b0b8cc;
+  }
+
+  .toggle-btn {
+    appearance: none;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #d0d8ee;
+    padding: 7px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+    transition: background 160ms, border-color 160ms;
+  }
+  .toggle-btn:hover { background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.14); }
+  .toggle-btn:focus-visible { box-shadow: 0 0 0 3px rgba(233,69,245,0.25); outline: none; }
+
+  /* ===== Controls ===== */
+  .section-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.35);
+    margin: 16px 0 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .section-title:first-of-type { margin-top: 4px; }
+
+  .control-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 8px 0;
+  }
+  .control-row label {
+    font-size: 12px;
+    color: rgba(255,255,255,0.72);
+    white-space: nowrap;
+    min-width: 90px;
+  }
+  .control-row .value-display {
+    font-size: 11px;
+    color: rgba(255,255,255,0.45);
+    min-width: 32px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: 1;
+    height: 5px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 6px;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #e945f5, #61dafb);
+    border: 2px solid rgba(0,0,0,0.3);
+    box-shadow: 0 2px 8px rgba(233,69,245,0.35);
+    cursor: grab;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #e945f5, #61dafb);
+    border: 2px solid rgba(0,0,0,0.3);
+    box-shadow: 0 2px 8px rgba(233,69,245,0.35);
+    cursor: grab;
+  }
+
+  input[type="color"] {
+    -webkit-appearance: none;
+    appearance: none;
+    border: none;
+    width: 40px;
+    height: 32px;
+    border-radius: 8px;
+    cursor: pointer;
+    padding: 0;
+    background: transparent;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.08) inset;
+  }
+  input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; border-radius: 8px; }
+  input[type="color"]::-webkit-color-swatch { border: none; border-radius: 8px; }
+  input[type="color"]::-moz-color-swatch { border: none; border-radius: 8px; }
+
+  .color-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .color-row label {
+    font-size: 12px;
+    color: rgba(255,255,255,0.65);
+    min-width: 78px;
+  }
+
+  /* Checkbox toggle switches */
+  .switch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 6px 0;
+  }
+  .switch-row label {
+    font-size: 12px;
+    color: rgba(255,255,255,0.72);
+  }
+  .switch {
+    position: relative;
+    width: 38px;
+    height: 22px;
+  }
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .switch .slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background: rgba(255,255,255,0.08);
+    border-radius: 22px;
+    transition: background 200ms;
+  }
+  .switch .slider::before {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    left: 3px;
+    bottom: 3px;
+    background: #888;
+    border-radius: 50%;
+    transition: transform 200ms, background 200ms;
+  }
+  .switch input:checked + .slider {
+    background: linear-gradient(135deg, #e945f5, #61dafb);
+  }
+  .switch input:checked + .slider::before {
+    transform: translateX(16px);
+    background: #fff;
+  }
+
+  .footer-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .footer-row .hint {
+    font-size: 11px;
+    color: rgba(255,255,255,0.35);
+  }
+  .reset-btn {
+    appearance: none;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #d0d8ee;
+    padding: 6px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+    transition: background 160ms;
+  }
+  .reset-btn:hover { background: rgba(255,255,255,0.09); }
+
+  /* Responsive */
+  @media (max-width: 440px) {
+    .settings-panel { right: 10px; left: 10px; width: auto; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="waves" aria-hidden="true"></canvas>
+
+<div class="settings-panel" id="settingsPanel">
+  <div class="panel-header">
+    <div>
+      <h1>Floating Lines</h1>
+      <div class="subtitle">Animated waves that drift across the screen</div>
+    </div>
+    <button class="toggle-btn" id="togglePanelBtn" title="Hide panel (H)">Hide</button>
+  </div>
+
+  <!-- Waves Enable -->
+  <div class="section-title">Waves</div>
+  <div class="switch-row">
+    <label>Top Wave</label>
+    <label class="switch"><input type="checkbox" id="waveTop" checked><span class="slider"></span></label>
+  </div>
+  <div class="switch-row">
+    <label>Middle Wave</label>
+    <label class="switch"><input type="checkbox" id="waveMid" checked><span class="slider"></span></label>
+  </div>
+  <div class="switch-row">
+    <label>Bottom Wave</label>
+    <label class="switch"><input type="checkbox" id="waveBot" checked><span class="slider"></span></label>
+  </div>
+
+  <!-- Line Parameters -->
+  <div class="section-title">Lines</div>
+  <div class="control-row">
+    <label>Line Count</label>
+    <input type="range" id="lineCount" min="2" max="24" step="1" value="8">
+    <span class="value-display" id="lineCountVal">8</span>
+  </div>
+  <div class="control-row">
+    <label>Line Distance</label>
+    <input type="range" id="lineDistance" min="2" max="30" step="1" value="8">
+    <span class="value-display" id="lineDistanceVal">8</span>
+  </div>
+  <div class="control-row">
+    <label>Line Width</label>
+    <input type="range" id="lineWidth" min="0.5" max="5" step="0.25" value="1.5">
+    <span class="value-display" id="lineWidthVal">1.5</span>
+  </div>
+
+  <!-- Bend & Shape -->
+  <div class="section-title">Shape</div>
+  <div class="control-row">
+    <label>Bend Radius</label>
+    <input type="range" id="bendRadius" min="1" max="30" step="1" value="8">
+    <span class="value-display" id="bendRadiusVal">8</span>
+  </div>
+  <div class="control-row">
+    <label>Bend Strength</label>
+    <input type="range" id="bendStrength" min="-8" max="8" step="0.5" value="-2">
+    <span class="value-display" id="bendStrengthVal">-2</span>
+  </div>
+  <div class="control-row">
+    <label>Turbulence</label>
+    <input type="range" id="turbulence" min="0" max="100" step="1" value="35">
+    <span class="value-display" id="turbulenceVal">35</span>
+  </div>
+
+  <!-- Motion -->
+  <div class="section-title">Motion</div>
+  <div class="control-row">
+    <label>Anim Speed</label>
+    <input type="range" id="animSpeed" min="0.1" max="5" step="0.1" value="1">
+    <span class="value-display" id="animSpeedVal">1</span>
+  </div>
+  <div class="control-row">
+    <label>Drift Speed</label>
+    <input type="range" id="driftSpeed" min="0" max="3" step="0.1" value="0.8">
+    <span class="value-display" id="driftSpeedVal">0.8</span>
+  </div>
+  <div class="switch-row">
+    <label>Interactive (mouse)</label>
+    <label class="switch"><input type="checkbox" id="interactive" checked><span class="slider"></span></label>
+  </div>
+  <div class="switch-row">
+    <label>Parallax</label>
+    <label class="switch"><input type="checkbox" id="parallax" checked><span class="slider"></span></label>
+  </div>
+
+  <!-- Colors -->
+  <div class="section-title">Colors</div>
+  <div class="color-row">
+    <label>Start</label>
+    <input type="color" id="gradStart" value="#e945f5">
+  </div>
+  <div class="color-row" style="margin-top:6px">
+    <label>Mid</label>
+    <input type="color" id="gradMid" value="#6f6f6f">
+  </div>
+  <div class="color-row" style="margin-top:6px">
+    <label>End</label>
+    <input type="color" id="gradEnd" value="#6a6a6a">
+  </div>
+  <div class="control-row" style="margin-top:8px">
+    <label>Glow Intensity</label>
+    <input type="range" id="glowIntensity" min="0" max="30" step="1" value="12">
+    <span class="value-display" id="glowIntensityVal">12</span>
+  </div>
+
+  <div class="footer-row">
+    <span class="hint">Press H to toggle panel</span>
+    <button class="reset-btn" id="resetBtn">Reset</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   Floating Lines — Fully Animated Waves
+   Waves drift, orbit, and roam the entire screen.
+   Each wave group is an autonomous entity with its own
+   position, velocity, rotation, and undulation.
+   ============================================================ */
+
+// ─── Canvas Setup ───
+const canvas = document.getElementById('waves');
+const ctx = canvas.getContext('2d');
+let DPR = Math.max(1, window.devicePixelRatio || 1);
+let W, H;
+
+function resize() {
+  DPR = Math.max(1, window.devicePixelRatio || 1);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener('resize', resize, { passive: true });
+resize();
+
+// ─── Mouse State ───
+const mouse = { x: W / 2, y: H / 2, sx: W / 2, sy: H / 2 };
+window.addEventListener('pointermove', e => {
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+}, { passive: true });
+
+// ─── Settings State ───
+const S = {
+  enabledWaves: { top: true, middle: true, bottom: true },
+  lineCount: 8,
+  lineDistance: 8,
+  lineWidth: 1.5,
+  bendRadius: 8,
+  bendStrength: -2,
+  turbulence: 35,
+  animSpeed: 1,
+  driftSpeed: 0.8,
+  interactive: true,
+  parallax: true,
+  gradientStart: '#e945f5',
+  gradientMid: '#6f6f6f',
+  gradientEnd: '#6a6a6a',
+  glowIntensity: 12
+};
+
+// ─── DOM Bindings ───
+const els = {
+  waveTop: document.getElementById('waveTop'),
+  waveMid: document.getElementById('waveMid'),
+  waveBot: document.getElementById('waveBot'),
+  lineCount: document.getElementById('lineCount'),
+  lineDistance: document.getElementById('lineDistance'),
+  lineWidth: document.getElementById('lineWidth'),
+  bendRadius: document.getElementById('bendRadius'),
+  bendStrength: document.getElementById('bendStrength'),
+  turbulence: document.getElementById('turbulence'),
+  animSpeed: document.getElementById('animSpeed'),
+  driftSpeed: document.getElementById('driftSpeed'),
+  interactive: document.getElementById('interactive'),
+  parallax: document.getElementById('parallax'),
+  gradStart: document.getElementById('gradStart'),
+  gradMid: document.getElementById('gradMid'),
+  gradEnd: document.getElementById('gradEnd'),
+  glowIntensity: document.getElementById('glowIntensity'),
+};
+
+const valEls = {
+  lineCount: document.getElementById('lineCountVal'),
+  lineDistance: document.getElementById('lineDistanceVal'),
+  lineWidth: document.getElementById('lineWidthVal'),
+  bendRadius: document.getElementById('bendRadiusVal'),
+  bendStrength: document.getElementById('bendStrengthVal'),
+  turbulence: document.getElementById('turbulenceVal'),
+  animSpeed: document.getElementById('animSpeedVal'),
+  driftSpeed: document.getElementById('driftSpeedVal'),
+  glowIntensity: document.getElementById('glowIntensityVal'),
+};
+
+function readSettings() {
+  S.enabledWaves.top = els.waveTop.checked;
+  S.enabledWaves.middle = els.waveMid.checked;
+  S.enabledWaves.bottom = els.waveBot.checked;
+  S.lineCount = parseInt(els.lineCount.value);
+  S.lineDistance = parseInt(els.lineDistance.value);
+  S.lineWidth = parseFloat(els.lineWidth.value);
+  S.bendRadius = parseInt(els.bendRadius.value);
+  S.bendStrength = parseFloat(els.bendStrength.value);
+  S.turbulence = parseInt(els.turbulence.value);
+  S.animSpeed = parseFloat(els.animSpeed.value);
+  S.driftSpeed = parseFloat(els.driftSpeed.value);
+  S.interactive = els.interactive.checked;
+  S.parallax = els.parallax.checked;
+  S.gradientStart = els.gradStart.value;
+  S.gradientMid = els.gradMid.value;
+  S.gradientEnd = els.gradEnd.value;
+  S.glowIntensity = parseInt(els.glowIntensity.value);
+
+  // update value displays
+  valEls.lineCount.textContent = S.lineCount;
+  valEls.lineDistance.textContent = S.lineDistance;
+  valEls.lineWidth.textContent = S.lineWidth;
+  valEls.bendRadius.textContent = S.bendRadius;
+  valEls.bendStrength.textContent = S.bendStrength;
+  valEls.turbulence.textContent = S.turbulence;
+  valEls.animSpeed.textContent = S.animSpeed;
+  valEls.driftSpeed.textContent = S.driftSpeed;
+  valEls.glowIntensity.textContent = S.glowIntensity;
+}
+
+// attach listeners to all inputs
+document.querySelectorAll('.settings-panel input').forEach(input => {
+  input.addEventListener('input', readSettings);
+  input.addEventListener('change', readSettings);
+});
+
+// ─── Panel Toggle ───
+const panelEl = document.getElementById('settingsPanel');
+const toggleBtn = document.getElementById('togglePanelBtn');
+let panelVisible = true;
+
+function togglePanel() {
+  panelVisible = !panelVisible;
+  panelEl.classList.toggle('collapsed', !panelVisible);
+  toggleBtn.textContent = panelVisible ? 'Hide' : 'Show';
+}
+
+toggleBtn.addEventListener('click', togglePanel);
+window.addEventListener('keydown', e => {
+  if (e.key === 'h' || e.key === 'H') togglePanel();
+});
+
+// ─── Reset ───
+document.getElementById('resetBtn').addEventListener('click', () => {
+  els.waveTop.checked = true;
+  els.waveMid.checked = true;
+  els.waveBot.checked = true;
+  els.lineCount.value = 8;
+  els.lineDistance.value = 8;
+  els.lineWidth.value = 1.5;
+  els.bendRadius.value = 8;
+  els.bendStrength.value = -2;
+  els.turbulence.value = 35;
+  els.animSpeed.value = 1;
+  els.driftSpeed.value = 0.8;
+  els.interactive.checked = true;
+  els.parallax.checked = true;
+  els.gradStart.value = '#e945f5';
+  els.gradMid.value = '#6f6f6f';
+  els.gradEnd.value = '#6a6a6a';
+  els.glowIntensity.value = 12;
+  readSettings();
+  initWaves();
+});
+
+// ─── Utility ───
+function lerp(a, b, t) { return a + (b - a) * t; }
+function hexToRgb(hex) {
+  const h = hex.replace('#', '');
+  const n = parseInt(h, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+// ─── Simplex-like Noise (fast hash-based) ───
+function noise2D(x, y) {
+  // Fast pseudo-noise using sin-based hashing
+  let n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453123;
+  n = n - Math.floor(n);
+  return n * 2 - 1; // [-1, 1]
+}
+
+function smoothNoise(x, y) {
+  const ix = Math.floor(x), iy = Math.floor(y);
+  const fx = x - ix, fy = y - iy;
+  // Smoothstep
+  const sx = fx * fx * (3 - 2 * fx);
+  const sy = fy * fy * (3 - 2 * fy);
+  const n00 = noise2D(ix, iy);
+  const n10 = noise2D(ix + 1, iy);
+  const n01 = noise2D(ix, iy + 1);
+  const n11 = noise2D(ix + 1, iy + 1);
+  const nx0 = lerp(n00, n10, sx);
+  const nx1 = lerp(n01, n11, sx);
+  return lerp(nx0, nx1, sy);
+}
+
+function fbm(x, y, octaves = 3) {
+  let val = 0, amp = 0.5, freq = 1;
+  for (let i = 0; i < octaves; i++) {
+    val += amp * smoothNoise(x * freq, y * freq);
+    amp *= 0.5;
+    freq *= 2.1;
+  }
+  return val;
+}
+
+// ─── Wave Groups ───
+// Each wave group is an entity that moves freely around the screen
+class WaveGroup {
+  constructor(id) {
+    this.id = id;
+    // Random starting position across the full screen
+    this.x = Math.random() * W;
+    this.y = Math.random() * H;
+    // Smooth rendered position
+    this.rx = this.x;
+    this.ry = this.y;
+    // Drift velocity angles (autonomous movement)
+    this.driftAngle = Math.random() * Math.PI * 2;
+    this.driftAngleSpeed = (Math.random() - 0.5) * 0.3;
+    // Orbit parameters for complex trajectories
+    this.orbitRadius = lerp(80, 300, Math.random());
+    this.orbitSpeed = lerp(0.15, 0.5, Math.random()) * (Math.random() < 0.5 ? 1 : -1);
+    this.orbitPhase = Math.random() * Math.PI * 2;
+    // Lissajous parameters for interesting path shapes
+    this.lissA = lerp(0.7, 1.5, Math.random());
+    this.lissB = lerp(0.5, 1.3, Math.random());
+    // Home position for drifting — periodically resets
+    this.homeX = W * lerp(0.15, 0.85, Math.random());
+    this.homeY = H * lerp(0.15, 0.85, Math.random());
+    this.homeTimer = Math.random() * 200;
+    // Rotation of the wave group itself
+    this.rotation = Math.random() * Math.PI * 2;
+    this.rotationSpeed = (Math.random() - 0.5) * 0.15;
+    // Line span — how wide the wave is
+    this.span = lerp(W * 0.5, W * 1.2, Math.random());
+    // Per-wave noise seeds
+    this.noiseSeedX = Math.random() * 1000;
+    this.noiseSeedY = Math.random() * 1000;
+    // Parallax depth layer
+    this.depth = lerp(0.3, 1.0, Math.random());
+  }
+
+  update(t, dt) {
+    const drift = S.driftSpeed;
+    const speed = S.animSpeed;
+
+    // Update home position periodically for wandering behavior
+    this.homeTimer += dt * 0.4 * drift;
+    if (this.homeTimer > 200) {
+      this.homeTimer = 0;
+      this.homeX = W * lerp(0.1, 0.9, Math.random());
+      this.homeY = H * lerp(0.1, 0.9, Math.random());
+    }
+
+    // Orbital + Lissajous path around the home position
+    const orbAngle = t * this.orbitSpeed * speed * 0.3 + this.orbitPhase;
+    const orbX = Math.sin(orbAngle * this.lissA) * this.orbitRadius * (drift + 0.2);
+    const orbY = Math.cos(orbAngle * this.lissB) * this.orbitRadius * 0.7 * (drift + 0.2);
+
+    // Additional noise-based wandering
+    const wanderX = fbm(t * 0.08 * drift + this.noiseSeedX, this.id * 3.7) * 120 * drift;
+    const wanderY = fbm(this.id * 5.1, t * 0.06 * drift + this.noiseSeedY) * 100 * drift;
+
+    // Target position
+    let targetX = this.homeX + orbX + wanderX;
+    let targetY = this.homeY + orbY + wanderY;
+
+    // Wrap around screen edges with padding
+    const pad = 200;
+    if (targetX < -pad) targetX += W + pad * 2;
+    if (targetX > W + pad) targetX -= W + pad * 2;
+    if (targetY < -pad) targetY += H + pad * 2;
+    if (targetY > H + pad) targetY -= H + pad * 2;
+
+    this.x = targetX;
+    this.y = targetY;
+
+    // Smoothly follow
+    this.rx = lerp(this.rx, this.x, 0.04 + drift * 0.02);
+    this.ry = lerp(this.ry, this.y, 0.04 + drift * 0.02);
+
+    // Rotation evolves
+    this.rotation += this.rotationSpeed * dt * speed * 0.15;
+
+    // Interactive — mouse attraction
+    if (S.interactive) {
+      const mdx = mouse.sx - this.rx;
+      const mdy = mouse.sy - this.ry;
+      const mDist = Math.hypot(mdx, mdy) || 1;
+      const influence = Math.max(0, 1 - mDist / 500) * 60;
+      this.rx += (mdx / mDist) * influence * dt * 0.3;
+      this.ry += (mdy / mDist) * influence * dt * 0.3;
+    }
+
+    // Parallax offset
+    if (S.parallax) {
+      const px = (mouse.sx - W / 2) * this.depth * 0.05;
+      const py = (mouse.sy - H / 2) * this.depth * 0.05;
+      this.rx += px * dt * 0.2;
+      this.ry += py * dt * 0.2;
+    }
+  }
+}
+
+let waveGroups = [];
+
+function initWaves() {
+  waveGroups = [];
+  const names = ['top', 'middle', 'bottom'];
+  for (let i = 0; i < 3; i++) {
+    const group = new WaveGroup(i);
+    // Give each wave a different starting region tendency
+    group.homeX = W * (0.2 + i * 0.3 + (Math.random() - 0.5) * 0.2);
+    group.homeY = H * (0.15 + i * 0.3 + (Math.random() - 0.5) * 0.15);
+    group.x = group.homeX;
+    group.y = group.homeY;
+    group.rx = group.x;
+    group.ry = group.y;
+    waveGroups.push(group);
+  }
+}
+
+initWaves();
+
+// ─── Drawing ───
+function drawWaveGroup(group, t, waveIndex) {
+  const count = S.lineCount;
+  const dist = S.lineDistance;
+  const bendR = S.bendRadius;
+  const bendS = S.bendStrength;
+  const turbulence = S.turbulence * 0.01;
+  const speed = S.animSpeed;
+  const lw = S.lineWidth;
+  const glow = S.glowIntensity;
+
+  const cx = group.rx;
+  const cy = group.ry;
+  const rot = group.rotation;
+  const span = group.span;
+  const segments = 60; // resolution of each line
+
+  const startRgb = hexToRgb(S.gradientStart);
+  const midRgb = hexToRgb(S.gradientMid);
+  const endRgb = hexToRgb(S.gradientEnd);
+
+  for (let li = 0; li < count; li++) {
+    const lineOffset = (li - count / 2) * dist;
+    // Color interpolation across lines: start → mid → end
+    const colorT = count > 1 ? li / (count - 1) : 0.5;
+    let r, g, b;
+    if (colorT < 0.5) {
+      const ct = colorT * 2;
+      r = lerp(startRgb[0], midRgb[0], ct);
+      g = lerp(startRgb[1], midRgb[1], ct);
+      b = lerp(startRgb[2], midRgb[2], ct);
+    } else {
+      const ct = (colorT - 0.5) * 2;
+      r = lerp(midRgb[0], endRgb[0], ct);
+      g = lerp(midRgb[1], endRgb[1], ct);
+      b = lerp(midRgb[2], endRgb[2], ct);
+    }
+
+    // Alpha fade for edge lines
+    const edgeFade = 1 - Math.abs(li - count / 2) / (count / 2 + 1);
+    const alpha = Math.max(0.15, edgeFade * 0.85);
+
+    ctx.strokeStyle = `rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},${alpha})`;
+    ctx.lineWidth = lw;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    if (glow > 0) {
+      ctx.shadowColor = `rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},${alpha * 0.6})`;
+      ctx.shadowBlur = glow;
+    } else {
+      ctx.shadowBlur = 0;
+    }
+
+    ctx.beginPath();
+
+    for (let si = 0; si <= segments; si++) {
+      const segT = si / segments; // 0..1
+      const localX = (segT - 0.5) * span;
+      let localY = lineOffset;
+
+      // Primary wave undulation (moves over time)
+      const waveFreq = bendR * 0.12;
+      const wavePhase = t * speed * 0.8 + waveIndex * 2.1 + li * 0.3;
+      localY += Math.sin(localX * waveFreq * 0.01 + wavePhase) * bendS * 12;
+
+      // Secondary harmonic
+      localY += Math.sin(localX * waveFreq * 0.025 + wavePhase * 0.7 + li * 0.5) * bendS * 5;
+
+      // Turbulence — noise-based distortion
+      if (turbulence > 0) {
+        const nx = fbm(
+          localX * 0.003 + t * speed * 0.15 + group.noiseSeedX,
+          li * 0.7 + waveIndex * 11 + t * speed * 0.08
+        );
+        const ny = fbm(
+          li * 1.3 + waveIndex * 7,
+          localX * 0.004 + t * speed * 0.12 + group.noiseSeedY
+        );
+        localY += nx * turbulence * 80;
+        localY += ny * turbulence * 30 * Math.sin(segT * Math.PI); // taper at edges
+      }
+
+      // Rotate and translate to world coordinates
+      const cosR = Math.cos(rot);
+      const sinR = Math.sin(rot);
+      const worldX = cx + localX * cosR - localY * sinR;
+      const worldY = cy + localX * sinR + localY * cosR;
+
+      if (si === 0) {
+        ctx.moveTo(worldX, worldY);
+      } else {
+        ctx.lineTo(worldX, worldY);
+      }
+    }
+
+    ctx.stroke();
+  }
+
+  ctx.shadowBlur = 0;
+}
+
+// ─── Animation Loop ───
+let lastTime = 0;
+
+function animate(time = 0) {
+  const rawDt = Math.min(32, time - lastTime);
+  const dt = rawDt * 0.001; // seconds
+  lastTime = time;
+  const t = time * 0.001;
+
+  // Smooth mouse
+  mouse.sx = lerp(mouse.sx, mouse.x, 0.08);
+  mouse.sy = lerp(mouse.sy, mouse.y, 0.08);
+
+  // Clear
+  ctx.clearRect(0, 0, W, H);
+
+  // Dark background
+  ctx.fillStyle = '#0a0b10';
+  ctx.fillRect(0, 0, W, H);
+
+  // Subtle ambient glow at center
+  const ambGrad = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * 0.55);
+  ambGrad.addColorStop(0, 'rgba(30, 20, 50, 0.35)');
+  ambGrad.addColorStop(1, 'rgba(10, 11, 16, 0)');
+  ctx.fillStyle = ambGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Update and draw wave groups
+  const waveNames = ['top', 'middle', 'bottom'];
+  for (let i = 0; i < waveGroups.length; i++) {
+    if (!S.enabledWaves[waveNames[i]]) continue;
+    waveGroups[i].update(t, dt);
+    drawWaveGroup(waveGroups[i], t, i);
+  }
+
+  requestAnimationFrame(animate);
+}
+
+readSettings();
+requestAnimationFrame(animate);
+
+// Reinitialize on significant resize
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    resize();
+    initWaves();
+  }, 150);
+}, { passive: true });
+
+// Prevent panel interactions from bubbling
+document.getElementById('settingsPanel').addEventListener('pointerdown', e => e.stopPropagation());
+</script>
+</body>
+</html>
